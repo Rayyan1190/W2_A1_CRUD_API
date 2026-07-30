@@ -2,7 +2,12 @@ from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel
 from typing import Optional
 
-app = FastAPI()
+# Title and description show up at the top of Swagger UI so anyone opening
+# /docs knows what this API is for before reading a single endpoint
+app = FastAPI(
+    title="Task API",
+    description="A simple in memory CRUD API for managing tasks"
+)
 
 
 # title is optional here rather than required so a missing title reaches our
@@ -28,7 +33,7 @@ tasks = [
 ]
 
 
-@app.get("/")
+@app.get("/", summary="API info")
 def read_root():
     # Returning a plain dict here since FastAPI serializes it to JSON automatically
     # endpoints list is hardcoded for now since /tasks is the only route that exists
@@ -39,20 +44,20 @@ def read_root():
     }
 
 
-@app.get("/health")
+@app.get("/health", summary="Check server is alive")
 def health_check():
     # No database or dependency check here since this endpoint only needs to prove
     # the server process itself is up and able to respond
     return {"status": "ok"}
 
 
-@app.get("/tasks")
+@app.get("/tasks", summary="List all tasks")
 def get_tasks():
     # Returning the list directly since no filtering or pagination is needed yet
     return tasks
 
 
-@app.get("/tasks/{task_id}")
+@app.get("/tasks/{task_id}", summary="Get a single task by id")
 def get_task(task_id: int):
     # Each task id is checked one by one since tasks are stored in a simple list
     # with no index built for lookup by id
@@ -71,7 +76,7 @@ def get_task(task_id: int):
     return found_task
 
 
-@app.post("/tasks", status_code=201)
+@app.post("/tasks", status_code=201, summary="Create a new task")
 def create_task(task: TaskCreate):
     # Title is checked here since the server is the last line of defense
     # and must never assume the client sent valid data
@@ -88,7 +93,7 @@ def create_task(task: TaskCreate):
     return new_task
 
 
-@app.put("/tasks/{task_id}")
+@app.put("/tasks/{task_id}", summary="Update a task's title and/or done status")
 def update_task(task_id: int, task_update: TaskUpdate):
     # Task is looked up first since a 404 should win over a 400. There is
     # nothing to validate an update against if the task does not exist
@@ -118,7 +123,7 @@ def update_task(task_id: int, task_update: TaskUpdate):
     return found_task
 
 
-@app.delete("/tasks/{task_id}", status_code=204)
+@app.delete("/tasks/{task_id}", status_code=204, summary="Delete a task by id")
 def delete_task(task_id: int):
     # Index is needed here rather than just the task since list.pop requires
     # a position and there is no separate id to index map kept for this list
