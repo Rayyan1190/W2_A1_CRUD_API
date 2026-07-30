@@ -1,13 +1,23 @@
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import Optional
 
 app = FastAPI()
+
+
+# title is optional here rather than required so a missing title reaches our
+# Its own check below and gets a 400 with a clear message instead of FastAPI's
+# generic 422 validation error
+class TaskCreate(BaseModel):
+    title: Optional[str] = None
+
 
 # Plain list acts as the database for this stage since no real storage exists yet
 # Each task is a dict here rather than a class to keep this stage lightweight
 tasks = [
-    {"id": 1, "title": "Learn FastAPI basics", "done": False},
-    {"id": 2, "title": "Build the tasks endpoint", "done": False},
-    {"id": 3, "title": "Test with curl", "done": True}
+    {"id": 1, "title": "I will Learn FastAPI basics", "done": False},
+    {"id": 2, "title": "I will Build the tasks endpoint", "done": False},
+    {"id": 3, "title": "I will Test with curl", "done": True}
 ]
 
 
@@ -52,3 +62,20 @@ def get_task(task_id: int):
         raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
 
     return found_task
+
+
+@app.post("/tasks", status_code=201)
+def create_task(task: TaskCreate):
+    # Title is checked here since the server is the last line of defense
+    # and must never assume the client sent valid data
+    if not task.title or not task.title.strip():
+        raise HTTPException(status_code=400, detail="Title is required and cannot be empty")
+
+    # max is used instead of len so ids stay unique even if a task is
+    # deleted later and the list length no longer matches the highest id
+    next_id = max((t["id"] for t in tasks), default=0) + 1
+
+    new_task = {"id": next_id, "title": task.title, "done": False}
+    tasks.append(new_task)
+
+    return new_task
