@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel
 from typing import Optional
 
@@ -6,10 +6,17 @@ app = FastAPI()
 
 
 # title is optional here rather than required so a missing title reaches our
-# Its own check below and gets a 400 with a clear message instead of FastAPI's
+# own check below and gets a 400 with a clear message instead of FastAPI's
 # generic 422 validation error
 class TaskCreate(BaseModel):
     title: Optional[str] = None
+
+
+# Both fields are optional since a client may update only the title or only
+# done. Requiring both would force callers to resend data they did not change
+class TaskUpdate(BaseModel):
+    title: Optional[str] = None
+    done: Optional[bool] = None
 
 
 # Plain list acts as the database for this stage since no real storage exists yet
@@ -79,3 +86,53 @@ def create_task(task: TaskCreate):
     tasks.append(new_task)
 
     return new_task
+
+
+@app.put("/tasks/{task_id}")
+def update_task(task_id: int, task_update: TaskUpdate):
+    # Task is looked up first since a 404 should win over a 400. There is
+    # nothing to validate an update against if the task does not exist
+    found_task = None
+    for task in tasks:
+        if task["id"] == task_id:
+            found_task = task
+            break
+
+    if found_task is None:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+
+    # Both fields missing means the client sent nothing worth applying
+    if task_update.title is None and task_update.done is None:
+        raise HTTPException(status_code=400, detail="Request body must include title or done")
+
+    # A title that is present but blank is treated the same as a missing
+    # title since an empty name is not a usable task title
+    if task_update.title is not None:
+        if not task_update.title.strip():
+            raise HTTPException(status_code=400, detail="Title cannot be empty")
+        found_task["title"] = task_update.title
+
+    if task_update.done is not None:
+        found_task["done"] = task_update.done
+
+    return found_task
+
+
+@app.delete("/tasks/{task_id}", status_code=204)
+def delete_task(task_id: int):
+    # Index is needed here rather than just the task since list.pop requires
+    # a position and there is no separate id to index map kept for this list
+    found_index = None
+    for index, task in enumerate(tasks):
+        if task["id"] == task_id:
+            found_index = index
+            break
+
+    if found_index is None:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+
+    tasks.pop(found_index)
+
+    # Response with no body is returned explicitly since 204 must not include
+    # a payload. Returning None would still serialize to a json null body
+    return Response(status_code=204)
