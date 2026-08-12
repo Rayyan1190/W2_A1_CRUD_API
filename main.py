@@ -32,6 +32,10 @@ tasks = [
     {"id": 3, "title": "I will Test with curl", "done": True}
 ]
 
+# Running counter tracks the next id to hand out. Starts after the seed
+# tasks above so a new task never collides with an existing id
+next_task_id = 4
+
 
 @app.get("/", summary="API info")
 def read_root():
@@ -83,12 +87,13 @@ def create_task(task: TaskCreate):
     if not task.title or not task.title.strip():
         raise HTTPException(status_code=400, detail="Title is required and cannot be empty")
 
-    # max is used instead of len so ids stay unique even if a task is
-    # deleted later and the list length no longer matches the highest id
-    next_id = max((t["id"] for t in tasks), default=0) + 1
+    global next_task_id
 
-    new_task = {"id": next_id, "title": task.title, "done": False}
+    # Counter is used instead of checking existing ids so a task id is never
+    # reused even after the task with that id has been deleted
+    new_task = {"id": next_task_id, "title": task.title, "done": False}
     tasks.append(new_task)
+    next_task_id += 1
 
     return new_task
 

@@ -44,7 +44,7 @@ Returns the full list of tasks that currently exist in memory.
 Returns one single task that matches the given id. If no task exists with that id, the server responds with a 404 status code and a proper error message instead of just returning an empty response.
 
 ### POST /tasks
-This is used to create a new task. The client has to send a title in the request body. The server checks that the title is not empty or missing, since the server should never blindly trust what the client sends. If the title is missing, it responds with a 400 status code. If everything is fine, a new task is created with a new id, done is set to false by default, and the task is returned back with a 201 status code, which means something was successfully created.
+This is used to create a new task. The client has to send a title in the request body. The server checks that the title is not empty or missing, since the server should never blindly trust what the client sends. If the title is missing, it responds with a 400 status code. If everything is fine, a new task is created and given the next id from a running counter, so an id is never reused even after a task with that id is deleted later. The done value is set to false by default, and the task is returned back with a 201 status code, which means something was successfully created.
 
 ### PUT /tasks/{task_id}
 This is used to update an existing task. A client can update the title, the done value, or both together. If the task id does not exist, it returns 404. If the body sent by the client is empty or does not contain title or done at all, it returns 400, since there is nothing meaningful to update in that case.
